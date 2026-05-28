@@ -1,0 +1,121 @@
+# ============================================================
+# CENTRAL DISTRIBUTED CONFIG
+# Change ONLY run.model and run.language per machine.
+# ============================================================
+run:
+  model: "bge-m3"   # e.g. multilingual-e5, bge-m3, gte-multilingual-base
+  language: "ru"    # ru | kg | en
+
+dataset:
+  name: "ru_common"
+  # Recursive corpus root. All *.json/*.jsonl inside are considered candidates.
+  # Set this to the absolute path of your local corpus folder.
+  corpus_root: "/path/to/your/corpus"
+  # Path to a questions file (.jsonl) or a folder containing questions_ru/kg/en files.
+  questions_path: "/path/to/your/questions"
+  file_filters:
+    recursive: true
+
+
+
+runtime:
+  results_dir: "results_distributed"
+  cache_dir: "~/.cache/rq1_draft/runtime"
+
+# If a record has type_field in product_type_values, it is treated as product:
+# - no chunking
+# - embed full содержание
+product_rules:
+  type_field: "record_type"
+  product_type_values: ["product"]
+
+frozen:
+  preprocessing:
+    lowercase: false
+    remove_special_chars: false
+    strip_whitespace: true
+    normalize_unicode: true
+
+  chunking:
+    strategy: "fixed"
+    chunk_size: 200
+    overlap: 100
+
+  embedding:
+    batch_size: 16
+
+  retrieval:
+    top_k: 10
+
+experiments:
+  retrieval:
+    # dense | hybrid
+    strategy: "dense"
+    # Final top-k returned to metrics.
+    top_k: 10
+    # Candidate pool for hybrid fusion.
+    candidate_k: 50
+    # bm25 | bge_m3_sparse
+    sparse_strategy: "bm25"
+    # rrf | weighted
+    fusion: "rrf"
+    dense_weight: 0.6
+    sparse_weight: 0.4
+
+  reranking:
+    enabled: false
+    # bge-reranker-v2-m3 | qwen3-reranker-0.6b | jina-reranker-v2
+    model: "jina-reranker-v2"
+    # Final number of chunks kept after reranking.
+    top_k: 10
+
+  chunk_window:
+    enabled: false
+    # Symmetric (+1) example: backward=1, forward=1
+    # Forward (+2) example: backward=0, forward=2
+    backward: 1
+    forward: 1
+
+qdrant:
+  url: "http://localhost:6333"
+  distance: "Cosine"
+  hnsw:
+    m: 16
+    ef_construct: 100
+  search:
+    ef: 50
+    exact: false
+
+# Supported model registry:
+# - multilingual-e5
+# - bge-m3
+# - gte-multilingual-base
+
+
+models_registry:
+  multilingual-e5:
+    provider: "sentence_transformers"
+    model_id: "intfloat/multilingual-e5-large"
+    dimension: 1024
+    batch_size: 32
+    normalize: true
+    query_prefix: "query: "
+    document_prefix: "passage: "
+  bge-m3:
+    provider: "sentence_transformers"
+    model_id: "BAAI/bge-m3"
+    dimension: 1024
+    batch_size: 16
+    normalize: true
+    query_prefix: "query: "
+    document_prefix: "passage: "
+  gte-multilingual-base:
+    provider: "sentence_transformers"
+    model_id: "Alibaba-NLP/gte-multilingual-base"
+    dimension: 768
+    batch_size: 16
+    normalize: true
+    trust_remote_code: true
+
+
+
