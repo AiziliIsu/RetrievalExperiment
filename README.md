@@ -21,12 +21,10 @@ Designed for distributed team runs where each machine evaluates a different mode
 ```
 RetrievalExperiment/
 ├── run_experiment.py          # Main entrypoint — CLI + orchestration
-├── aggregate_runs.py          # Combine *_summary.json files from multiple machines
 ├── fix_summaries.py           # Recalculate metrics from existing per-question logs
 ├── distributed_config.yaml    # All experiment settings (edit before running)
 ├── requirements.txt
-├── .env.example               # Copy to .env and fill in API keys
-├── RUN_ON_OTHER_MACHINES_GUIDE.md  # Detailed distributed-run guide
+├── .env                       # Fill in API keys
 ├── distributed_eval/          # Core library
 │   ├── distributed_config.py  # Config parser, model registry
 │   ├── chunker.py             # Fixed-size overlapping chunking
@@ -187,21 +185,7 @@ All settings live in `distributed_config.yaml`. Key sections:
 | `<run_id>_completed_questions.jsonl` | `~/.cache/rq1_draft/runtime/evaluation_state/` | Per-question checkpoint; enables resuming interrupted evaluations |
 | `processed_corpus_<hash>.pkl` | `~/.cache/rq1_draft/runtime/` | Cached preprocessed corpus; invalidated automatically on config change |
 
----
 
-## Multi-machine distributed runs
-
-See [RUN_ON_OTHER_MACHINES_GUIDE.md](RUN_ON_OTHER_MACHINES_GUIDE.md) for the full distributed workflow. Summary:
-
-1. Each machine runs one `(model, language)` combination.
-2. Only `run.model`, `run.language`, and dataset paths change per machine.
-3. Collect all `*_summary.json` files into one directory, then run:
-
-```bash
-python aggregate_runs.py --results-dir results_distributed
-```
-
----
 
 ## Retrieval pipeline options
 
@@ -229,16 +213,6 @@ To reproduce an experiment exactly:
 
 The `frozen` section of each summary file records the exact settings used during that run.
 
----
-
-## Known limitations
-
-- **No CUDA OOM protection during indexing**: If embedding a large corpus batch fails with OOM, reduce `frozen.embedding.batch_size`.
-- **BGE-M3 sparse mode is slow on CPU**: It re-encodes every dense candidate at query time. Prefer BM25 or ensure a GPU is available.
-- **Kyrgyz language support**: BM25 tokenization applies Russian/English stemming only; Kyrgyz tokens are left unstemmed. Dense models handle Kyrgyz natively but vary in quality.
-- **No automatic dataset versioning**: If the corpus changes, you must force reindex (`--force-reindex`) or the old collection will be used silently.
-
----
 
 ## Development notes
 

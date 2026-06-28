@@ -1,7 +1,4 @@
-# Knowledge Transfer Document
-
-**Project:** RetrievalExperiment (RQ1 draft)
-**Prepared for:** Future engineers taking over or extending this project
+# Knowledge Transfer
 
 ---
 
@@ -9,19 +6,18 @@
 
 The framework is fully functional and was used to run distributed retrieval evaluations across three multilingual embedding models and three languages (Russian, Kyrgyz, English). All core pipeline stages — corpus ingestion, indexing, evaluation, and aggregation — are implemented and tested on real data.
 
-The codebase is at an **experimental/research stage**: it produces correct results and is resumable, but it is not hardened as a production service. No automated test suite exists.
+This project was developed as part of an NLP/IR research study evaluating multilingual retrieval accuracy for mixed language in one session (KG/EN/RU). The initial implementation targets Russian and Kyrgyz due to time constraints.
 
 ---
 
 ## 2. What was accomplished
 
-- Implemented a complete retrieval evaluation pipeline supporting dense, hybrid (BM25 and BGE-M3 sparse), and reranking modes.
-- Evaluated three HuggingFace multilingual embedding models: `multilingual-e5-large`, `BAAI/bge-m3`, `Alibaba-NLP/gte-multilingual-base`.
-- Evaluated retrieval quality separately for Russian, Kyrgyz, and English questions against a shared multilingual corpus.
+- Implemented a complete retrieval evaluation pipeline supporting dense, hybrid, and reranking modes.
+- Evaluated three HuggingFace multilingual embedding models.
+- Evaluated retrieval quality separately for Russian, Kyrgyz, and English questions against a shared multilingual corpus seperately first with source dataset in kyrgyz and russian.
 - Established reproducible frozen experiment settings (chunking, preprocessing) so results across machines are comparable.
 - Implemented resumable evaluation: interrupted runs continue from the last completed question.
 - Implemented resumable indexing: interrupted indexing resumes by skipping already-uploaded points.
-- Built an aggregation script (`aggregate_runs.py`) to merge results from distributed machines.
 
 ---
 
@@ -31,7 +27,7 @@ The codebase is at an **experimental/research stage**: it produces correct resul
 The preprocessed corpus (chunked, normalized) is cached to disk keyed by SHA1 of the source files + config. This avoids re-chunking on every run. If the corpus or chunking settings change, the cache key changes and a fresh cache is built automatically.
 
 ### Collection naming
-Qdrant collection names encode the dataset name, model, chunk size, and overlap: `<dataset>_<model>_c<chunksize>_o<overlap>`. Changing chunking settings therefore automatically creates a new collection rather than silently comparing results with a different chunking scheme.
+Qdrant collection names encode the dataset name, model, chunk size, and overlap: `<dataset>_<model>_c<chunksize>_o<overlap>`. Changing chunking settings therefore automatically creates a new collection.
 
 ### Product records skip chunking
 Records with `record_type: product` in the corpus are embedded whole (no chunking). This is because product entries are short and structured, and splitting them would break the semantic unit. The behavior is controlled by `product_rules` in the config and can be extended.
@@ -57,55 +53,10 @@ dataset:
   questions_path: "/path/to/questions"
 ```
 
-**Corpus structure expected:** A folder (optionally nested) of `.json` or `.jsonl` files. Each record must have an `id` field and a `содержание` field (the text to embed). Records may also have a `record_type` field; the value `product` triggers special handling.
+**Corpus structure expected:** A folder (optionally nested) of `.json` or `.jsonl` files. Each record must have an `id` field and a `содержание` field (the text to embed). Records may also have a `record_type` field; the value `product` triggers special handling if the source_dataset is in Kyrgyz.
 
 **Question file structure expected:** A `.jsonl` file where each line has `id_question`, `id` (the expected source document), `question`, and `language` fields. Multiple question files in a folder are supported, auto-detected by filename convention (`questions_ru`, `questions_kg`, `questions_en`).
 
----
-
-## 5. Environment and secrets
-
-API keys are never stored in this repository. Copy `.env.example` to `.env` on each machine and fill in only the keys you need. The models used in this project (`bge-m3`, `multilingual-e5`, `gte-multilingual-base`) use `sentence_transformers` and require no API key — they download from HuggingFace automatically.
-
-The `.env` file is listed in `.gitignore` and must never be committed. Verify this with `git status` before pushing.
-
----
-
-## 6. Known issues and limitations
-
-| Issue | Impact | Suggested fix |
-|-------|--------|---------------|
-| No automated tests | Changes to core logic may silently break metrics | Add pytest unit tests for `evaluator.py`, `chunker.py`, and `corpus_builder.py` |
-| BGE-M3 sparse scorer is slow | Using `bge_m3_sparse` on CPU is very slow at query time | Use `bm25` for sparse, or ensure a GPU is available |
-| No dataset versioning | Corpus changes require manual `--force-reindex` | Add a corpus hash to the collection name or implement version tagging |
-| Kyrgyz BM25 is unstemmed | BM25 tokenizer does not stem Kyrgyz tokens | Integrate a Kyrgyz stemmer or morphological analyzer |
-| No structured logging | Print statements only; no log files | Replace `_safe_print` with Python `logging` module |
-| `fix_summaries.py` is a one-off utility | Not integrated into the main pipeline | Either promote to a proper subcommand or document clearly as a rescue tool |
-
----
-
-## 7. Recommended next steps
-
-**Short term (before next experiment round):**
-
-1. Add at least smoke tests for `chunker.py` and `evaluator.py` to catch regressions.
-2. Pin exact dependency versions in `requirements.txt` (use `pip freeze` after a working install).
-3. Document the exact corpus and question file versions used in any published results — include file counts, date obtained, and any preprocessing applied outside this framework.
-
-**Medium term (if extending the project):**
-
-4. Implement a true sparse index (e.g., Qdrant sparse vectors) to make `bge_m3_sparse` a fairer comparison.
-5. Add support for additional evaluation metrics (Precision@k, MAP).
-6. Add a `--dry-run` flag that reports what would be indexed/evaluated without executing.
-7. Consolidate `RUN_ON_OTHER_MACHINES_GUIDE.md` into the README to reduce documentation fragmentation.
-
-**Long term (if productionizing):**
-
-8. Replace the file-based checkpoint/resume system with a proper job queue (e.g., Celery, RQ).
-9. Add a configuration validation step at startup that catches path errors before the run begins.
-10. Consider containerizing the experiment runner (Dockerfile) for full environment reproducibility.
-
----
 
 ## 8. How to add a new embedding model
 
@@ -142,10 +93,5 @@ MODEL_MAP = {
 
 Then set `experiments.reranking.model: "my-reranker"` in the config.
 
----
 
-## 10. Contact and project history
 
-This project was developed as part of an NLP/IR research study evaluating multilingual retrieval for Central Asian languages. The initial implementation targets Russian and Kyrgyz alongside English as a baseline.
-
-For questions about the corpus or evaluation protocol design decisions not documented here, refer to the associated research notes or contact the original author.
